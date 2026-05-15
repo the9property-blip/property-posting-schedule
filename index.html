@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Property Posting Schedule",
+  "schemaVersion": 1,
+  "description": "ตารางโพสทรัพย์รายวัน — ดึงข้อมูลจาก Google Sheet ผ่าน Google Apps Script API สามารถใช้ออนไลน์บน GitHub Pages",
+  "mcpTools": [],
+  "mcpServerNames": []
+}
+</script>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ตารางโพสทรัพย์</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f4f8; color: #1a202c; padding: 14px; font-size: 15px; }
+
+.header { background: linear-gradient(135deg, #1a365d, #2c7a4b); color: white; padding: 18px 20px; border-radius: 14px; margin-bottom: 14px; }
+.header h1 { font-size: 20px; margin-bottom: 4px; }
+.header .sub { opacity: 0.8; font-size: 13px; margin-bottom: 10px; }
+.btn { background: white; color: #1a365d; border: none; padding: 9px 18px; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 700; margin-right: 8px; }
+.btn:hover { background: #ebf4ff; }
+.btn-reshuffle { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.5); }
+.btn-reshuffle:hover { background: rgba(255,255,255,0.3); }
+
+.summary-bar { background: white; border-radius: 10px; padding: 10px 16px; margin-bottom: 14px; display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; color: #4a5568; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.summary-bar b { color: #1a365d; }
+
+.type-card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); border-left: 5px solid #3182ce; }
+.type-card.t-town  { border-left-color: #dd6b20; }
+.type-card.t-house { border-left-color: #276749; }
+.type-card.t-condo { border-left-color: #6b46c1; }
+.type-card.t-pool  { border-left-color: #0987a0; }
+.type-card.t-other { border-left-color: #9b2c2c; }
+
+.type-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.type-name { font-size: 16px; font-weight: 700; color: #2d3748; }
+.type-count { font-size: 12px; color: #a0aec0; }
+.type-meta { font-size: 12px; color: #718096; margin-bottom: 12px; }
+.batch-date { font-weight: 700; color: #c53030; }
+.batch-date.new { color: #276749; }
+
+.codes { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { padding: 8px 16px; border-radius: 20px; font-weight: 700; font-size: 15px; letter-spacing: 0.5px; border: 2px solid transparent; }
+.chip-posted { background: #ebf8ff; color: #2c5282; border-color: #bee3f8; }
+.chip-new    { background: #f0fff4; color: #22543d; border-color: #9ae6b4; }
+
+.warn { background: #fffbeb; border: 1px solid #f6ad55; color: #744210; padding: 8px 12px; border-radius: 8px; font-size: 12px; margin-top: 10px; }
+.loading { text-align: center; padding: 50px; color: #718096; font-size: 16px; }
+.error-box { background: #fff5f5; border: 1px solid #fc8181; color: #9b2c2c; padding: 16px; border-radius: 12px; font-size: 13px; white-space: pre-wrap; word-break: break-all; }
+.rule-box { background: #ebf8ff; border: 1px solid #90cdf4; border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; font-size: 13px; color: #2c5282; }
+.rule-box b { display: block; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📋 ตารางโพสทรัพย์วันนี้</h1>
+  <div class="sub" id="date-display">กำลังโหลด...</div>
+  <button class="btn" onclick="loadData()">🔄 โหลดข้อมูล</button>
+  <button class="btn btn-reshuffle" onclick="reshuffle()">🎲 สุ่มใหม่</button>
+</div>
+
+<div class="rule-box">
+  <b>📌 กฎการสุ่ม</b>
+  เรียงจากวันโพสเก่าสุดก่อน → สุ่มสูงสุด 6 รหัส/ประเภท → <b>ห้ามข้ามวัน</b> (ต้องโพสทรัพย์วันเดิมให้ครบก่อน)
+</div>
+
+<div id="summary-bar" class="summary-bar" style="display:none"></div>
+<div id="output"><div class="loading">⏳ กำลังเชื่อมต่อ Google Sheet...</div></div>
+
+<script>
+// ⚠️ แทนที่ URL นี้ด้วย Deployment URL จาก Google Apps Script
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.googleusercontent.com/macros/d/YOUR_DEPLOYMENT_ID/usercache';
+const MAX_PER_TYPE = 6;
+
+let cachedProps = null;
+
+function todayStr() {
+  return new Date().toLocaleDateString('th-TH', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+}
+
+function parseDate(s) {
+  if (!s || !s.trim()) return null;
+  const parts = s.trim().split('/');
+  if (parts.length < 2) return null;
+  const day = parseInt(parts[0]);
+  const month = parseInt(parts[1]) - 1;
+  const year = parts.length >= 3 ? parseInt(parts[2]) : 2026;
+  if (isNaN(day) || isNaN(month)) return null;
+  return new Date(year, month, day);
+}
+
+function sameDate(a, b) {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+}
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [], cell = '', inQ = false;
+  for (let i = 0; i <= text.length; i++) {
+    const c = text[i];
+    if (c === '"') {
+      if (inQ && text[i+1]==='"') { cell += '"'; i++; } else inQ = !inQ;
+    } else if ((c===',' || c===undefined) && !inQ) {
+      row.push(cell.trim()); cell = '';
+      if (c===undefined) { if (row.some(x=>x)) rows.push(row); }
+    } else if ((c==='\n'||c==='\r') && !inQ) {
+      if (c==='\r' && text[i+1]==='\n') i++;
+      row.push(cell.trim()); cell = '';
+      if (row.some(x=>x)) rows.push(row);
+      row = [];
+    } else if (c!==undefined) { cell += c; }
+  }
+  return rows;
+}
+
+function shuffle(arr) {
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+function typeClass(type) {
+  if (!type) return 't-other';
+  const t = type.toLowerCase();
+  if (t.includes('ทาวน์')||t.includes('town')) return 't-town';
+  if (t.includes('พูล')||t.includes('pool')||t.includes('วิลล่า')||t.includes('villa')) return 't-pool';
+  if (t.includes('คอนโด')||t.includes('condo')) return 't-condo';
+  if (t.includes('บ้าน')||t.includes('house')||t.includes('แฝด')||t.includes('เดี่ยว')||t.includes('ดูเพล็กซ์')) return 't-house';
+  return 't-other';
+}
+
+function buildScheduleHTML(props) {
+  const byType = {};
+  for (const p of props) {
+    if (!byType[p.type]) byType[p.type] = [];
+    byType[p.type].push(p);
+  }
+  const types = Object.keys(byType).sort();
+  let html = '', totalSelected = 0;
+
+  for (const type of types) {
+    const list = [...byType[type]];
+    list.sort((a,b) => {
+      const da = a.lastPostedDate ? a.lastPostedDate.getTime() : 0;
+      const db = b.lastPostedDate ? b.lastPostedDate.getTime() : 0;
+      return da - db;
+    });
+    const oldestDate = list[0].lastPostedDate;
+    const batch = list.filter(p => sameDate(p.lastPostedDate, oldestDate));
+    const picked = shuffle(batch).slice(0, MAX_PER_TYPE);
+    const remaining = batch.length - picked.length;
+    totalSelected += picked.length;
+    const neverPosted = !oldestDate;
+    const dateLabel = neverPosted
+      ? '<span class="batch-date new">🆕 ยังไม่เคยโพส</span>'
+      : `<span class="batch-date">📅 ${list[0].lastPostedStr}</span>`;
+
+    html += `
+      <div class="type-card ${typeClass(type)}">
+        <div class="type-header">
+          <span class="type-name">${type}</span>
+          <span class="type-count">${list.length} ทรัพย์ทั้งหมด</span>
+        </div>
+        <div class="type-meta">วันโพสล่าสุด: ${dateLabel} &nbsp;·&nbsp; Batch นี้: <b>${batch.length}</b> ทรัพย์</div>
+        <div class="codes">
+          ${picked.map(p=>`<div class="chip ${neverPosted?'chip-new':'chip-posted'}">${p.code}</div>`).join('')}
+        </div>
+        ${remaining>0?`<div class="warn">⚠️ ยังเหลืออีก ${remaining} ทรัพย์จากวันเดิม — โพสให้ครบก่อนข้ามวัน</div>`:''}
+      </div>`;
+  }
+
+  document.getElementById('summary-bar').innerHTML =
+    `📦 ทรัพย์ทั้งหมด: <b>${props.length}</b> &nbsp;|&nbsp; ประเภท: <b>${types.length}</b> &nbsp;|&nbsp; โพสวันนี้: <b>${totalSelected}</b> รหัส`;
+  document.getElementById('summary-bar').style.display = 'flex';
+  return html;
+}
+
+function reshuffle() {
+  if (!cachedProps) { loadData(); return; }
+  document.getElementById('output').innerHTML = buildScheduleHTML(cachedProps);
+}
+
+async function loadData() {
+  const output = document.getElementById('output');
+  document.getElementById('summary-bar').style.display = 'none';
+  output.innerHTML = '<div class="loading">⏳ กำลังดึงข้อมูลจาก Google Sheet...</div>';
+  document.getElementById('date-display').textContent = todayStr();
+
+  try {
+    // เรียก Google Apps Script API
+    const response = await fetch(GOOGLE_APPS_SCRIPT_URL);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const csvText = await response.text();
+    const rows = parseCSV(csvText);
+    if (rows.length < 2) throw new Error('CSV ว่าง หรือ parse ไม่สำเร็จ (rows=' + rows.length + ')');
+
+    const props = [];
+    for (const row of rows.slice(1)) {
+      const columnA = row[0]?.trim() || '';
+      const code = row[1]?.trim();
+      const type = row[6]?.trim();
+      const lastPostedStr = row[18]?.trim() || '';
+      const columnU = row[20]?.trim() || '';
+
+      // เงื่อนไข 1: ข้ามถ้าคอลัมน์ A มีคำว่า "Co"
+      if (columnA.includes('Co')) continue;
+
+      // เงื่อนไข 2: ถ้าไม่มี Co ต้องมี "สวย" ในคอลัมน์ U
+      if (!columnU.includes('สวย')) continue;
+
+      if (!code || !type) continue;
+      props.push({ code, type, lastPostedStr, lastPostedDate: parseDate(lastPostedStr) });
+    }
+    if (props.length === 0) throw new Error('ไม่พบข้อมูลทรัพย์ในชีท');
+
+    cachedProps = props;
+    output.innerHTML = buildScheduleHTML(props);
+  } catch (err) {
+    output.innerHTML = `<div class="error-box">❌ ${err.message}</div>`;
+    console.error(err);
+  }
+}
+
+// โหลดข้อมูลอัตโนมัติ
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadData);
+} else {
+  loadData();
+}
+</script>
+</body>
+</html>
