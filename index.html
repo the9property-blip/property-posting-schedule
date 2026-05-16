@@ -44,9 +44,12 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f4f8; color: 
 .batch-date.new { color: #276749; }
 
 .codes { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { padding: 8px 16px; border-radius: 20px; font-weight: 700; font-size: 15px; letter-spacing: 0.5px; border: 2px solid transparent; }
+.chip { padding: 8px 16px; border-radius: 20px; font-weight: 700; font-size: 15px; letter-spacing: 0.5px; border: 2px solid transparent; display: inline-block; }
 .chip-posted { background: #ebf8ff; color: #2c5282; border-color: #bee3f8; }
 .chip-new    { background: #f0fff4; color: #22543d; border-color: #9ae6b4; }
+a.chip { text-decoration: none; cursor: pointer; transition: transform .08s ease, box-shadow .08s ease; }
+a.chip:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,0.12); text-decoration: none; }
+a.chip::after { content: ' 📁'; font-size: 12px; opacity: 0.7; }
 
 .warn { background: #fffbeb; border: 1px solid #f6ad55; color: #744210; padding: 8px 12px; border-radius: 8px; font-size: 12px; margin-top: 10px; }
 .loading { text-align: center; padding: 50px; color: #718096; font-size: 16px; }
@@ -73,11 +76,14 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f4f8; color: 
 <div id="output"><div class="loading">⏳ กำลังเชื่อมต่อ Google Sheet...</div></div>
 
 <script>
-// Apps Script Web App URL — ต้องลงท้ายด้วย ?format=csv เพื่อให้คืนเป็น CSV
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwiYT1Ah95Fdy2ofSpMUSfjeAkfzMVZ5yu2m7qZyAGvw8BtZJUSqqfnU7ybpT8sAE572Q/exec?format=csv';
+// Apps Script Web App URL
+const GOOGLE_APPS_SCRIPT_BASE = 'https://script.google.com/macros/s/AKfycbwiYT1Ah95Fdy2ofSpMUSfjeAkfzMVZ5yu2m7qZyAGvw8BtZJUSqqfnU7ybpT8sAE572Q/exec';
+const GOOGLE_APPS_SCRIPT_URL = GOOGLE_APPS_SCRIPT_BASE + '?format=csv';     // ดึงตารางทรัพย์
+const FOLDERS_URL           = GOOGLE_APPS_SCRIPT_BASE + '?format=folders'; // ดึง mapping รหัส → folder Drive
 const MAX_PER_TYPE = 6;
 
 let cachedProps = null;
+let cachedFolders = {};   // { code: folderUrl }
 
 function todayStr() {
   return new Date().toLocaleDateString('th-TH', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
@@ -170,7 +176,13 @@ function buildScheduleHTML(props) {
         </div>
         <div class="type-meta">วันโพสล่าสุด: ${dateLabel} &nbsp;·&nbsp; Batch นี้: <b>${batch.length}</b> ทรัพย์</div>
         <div class="codes">
-          ${picked.map(p=>`<div class="chip ${neverPosted?'chip-new':'chip-posted'}">${p.code}</div>`).join('')}
+          ${picked.map(p => {
+            const url = cachedFolders[p.code];
+            const cls = `chip ${neverPosted?'chip-new':'chip-posted'}`;
+            return url
+              ? `<a class="${cls}" href="${url}" target="_blank" rel="noopener" title="เปิดโฟลเดอร์ Drive">${p.code}</a>`
+              : `<div class="${cls}" title="ไม่พบ folder ใน Drive">${p.code}</div>`;
+          }).join('')}
         </div>
         ${remaining>0?`<div class="warn">⚠️ ยังเหลืออีก ${remaining} ทรัพย์จากวันเดิม — โพสให้ครบก่อนข้ามวัน</div>`:''}
       </div>`;
@@ -194,11 +206,23 @@ async function loadData() {
   document.getElementById('date-display').textContent = todayStr();
 
   try {
-    // เรียก Google Apps Script API
-    const response = await fetch(GOOGLE_APPS_SCRIPT_URL);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    // เรียก Google Apps Script API — ดึง CSV ของทรัพย์ + mapping folder Drive พร้อมกัน
+    const [csvResp, foldersResp] = await Promise.all([
+      fetch(GOOGLE_APPS_SCRIPT_URL),
+      fetch(FOLDERS_URL).catch(() => null)   // ถ้า folders endpoint ล้ม ก็ยังโชว์ตารางได้
+    ]);
+    if (!csvResp.ok) throw new Error(`HTTP ${csvResp.status}`);
 
-    const csvText = await response.text();
+    // โหลด folder mapping (ไม่ throw ถ้าล้ม — แค่ chip จะคลิกไม่ได้)
+    cachedFolders = {};
+    if (foldersResp && foldersResp.ok) {
+      try {
+        const fjson = await foldersResp.json();
+        if (fjson && fjson.ok && fjson.folders) cachedFolders = fjson.folders;
+      } catch (e) { console.warn('parse folders failed:', e); }
+    }
+
+    const csvText = await csvResp.text();
     const rows = parseCSV(csvText);
     if (rows.length < 2) throw new Error('CSV ว่าง หรือ parse ไม่สำเร็จ (rows=' + rows.length + ')');
 
