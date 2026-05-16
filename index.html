@@ -73,8 +73,8 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f4f8; color: 
 <div id="output"><div class="loading">⏳ กำลังเชื่อมต่อ Google Sheet...</div></div>
 
 <script>
-// ⚠️ แทนที่ URL นี้ด้วย Deployment URL จาก Google Apps Script
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwiYT1Ah95Fdy2ofSpMUSfjeAkfzMVZ5yu2m7qZyAGvw8BtZJUSqqfnU7ybpT8sAE572Q/exec';
+// Apps Script Web App URL — ต้องลงท้ายด้วย ?format=csv เพื่อให้คืนเป็น CSV
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwiYT1Ah95Fdy2ofSpMUSfjeAkfzMVZ5yu2m7qZyAGvw8BtZJUSqqfnU7ybpT8sAE572Q/exec?format=csv';
 const MAX_PER_TYPE = 6;
 
 let cachedProps = null;
