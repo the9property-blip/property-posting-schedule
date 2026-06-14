@@ -106,6 +106,28 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f4f8; color: 
 
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); background: #1a202c; color: #fff; padding: 11px 20px; border-radius: 10px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; z-index: 9999; box-shadow: 0 6px 20px rgba(0,0,0,0.3); max-width: 90vw; text-align: center; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ─── LOGIN / LOCK ─── */
+.btn-auth { background: #f6c244; color: #1a365d; }
+.btn-auth:hover { background: #f3b619; }
+.lock-banner { background: #fffbeb; border: 1px solid #f6ad55; color: #744210; padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lock-banner-btn { background: #f6c244; color: #1a365d; border: none; padding: 5px 12px; border-radius: 7px; font-weight: 700; cursor: pointer; font-family: inherit; font-size: 13px; }
+.lock-banner-btn:hover { background: #f3b619; }
+body.locked .btn-posted, body.locked .btn-delete, body.locked .btn-caption { opacity: 0.5; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.55); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 16px; }
+.modal-overlay.open { display: flex; }
+.login-box { background: #fff; border-radius: 16px; padding: 24px 22px; width: 100%; max-width: 340px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); text-align: center; }
+.login-box h2 { font-size: 19px; color: #1a365d; margin-bottom: 6px; }
+.login-box .login-sub { font-size: 13px; color: #718096; margin-bottom: 16px; line-height: 1.5; }
+.login-box input { width: 100%; padding: 11px 14px; font-size: 16px; border: 1.5px solid #cbd5e0; border-radius: 10px; text-align: center; letter-spacing: 2px; }
+.login-box input:focus { outline: none; border-color: #2c7a4b; }
+.login-err { color: #c0392b; font-size: 13px; min-height: 18px; margin: 9px 0; }
+.login-actions { display: flex; gap: 8px; }
+.login-actions button { flex: 1; padding: 11px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; border: none; }
+.login-ok { background: linear-gradient(135deg, #1a365d, #2c7a4b); color: #fff; }
+.login-ok:hover { filter: brightness(1.1); }
+.login-cancel { background: #edf2f7; color: #4a5568; }
+.login-cancel:hover { background: #e2e8f0; }
 </style>
 </head>
 <body>
@@ -115,6 +137,7 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f4f8; color: 
   <div class="sub" id="date-display">กำลังโหลด...</div>
   <button class="btn" onclick="loadData()">🔄 โหลดข้อมูล</button>
   <button class="btn btn-reshuffle" onclick="reshuffle()">🎲 สุ่มใหม่</button>
+  <button class="btn btn-auth" id="authBtn" onclick="authBtnClick()">🔒 ล็อกอินทีมงาน</button>
 </div>
 
 <div class="rule-box">
@@ -123,8 +146,22 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f4f8; color: 
   <div class="del-hint">✅ "โพสแล้ว" = บันทึกวันโพสวันนี้ลงคอลัมน์ S แล้วสุ่มทรัพย์ใหม่มาแทน &nbsp;•&nbsp; 🗑️ "ลบ" = ลบคำว่า "สวย" ในคอลัมน์ U (ไม่ขึ้นอีก, พิมพ์ "สวย" กลับเพื่อกู้คืน) &nbsp;•&nbsp; 📝 "ข้อความโพส + FB" = ดู/คัดลอกประกาศ + ลิงก์โพส FB</div>
 </div>
 
+<div id="lockBanner" class="lock-banner" style="display:none">🔒 ปุ่มทุกการ์ดถูกล็อกอยู่ — <button class="lock-banner-btn" onclick="openLogin()">ล็อกอินทีมงาน</button> เพื่อใช้งาน ✅ โพสแล้ว / 🗑️ ลบ / 📝 ข้อความ + FB</div>
 <div id="summary-bar" class="summary-bar" style="display:none"></div>
 <div id="output"><div class="loading">⏳ กำลังเชื่อมต่อ Google Sheet...</div></div>
+
+<div class="modal-overlay" id="loginModal">
+  <div class="login-box">
+    <h2>🔐 ล็อกอินทีมงาน</h2>
+    <div class="login-sub">ใส่รหัสเพื่อปลดล็อกปุ่มทุกการ์ด<br>(✅ โพสแล้ว · 🗑️ ลบ · 📝 ข้อความ + FB)</div>
+    <input id="loginPw" type="password" placeholder="รหัสทีมงาน" onkeydown="if(event.key==='Enter')doLogin()" autocomplete="current-password">
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-actions">
+      <button class="login-ok" id="loginOkBtn" onclick="doLogin()">เข้าสู่ระบบ</button>
+      <button class="login-cancel" onclick="closeLogin()">ปิด</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -289,8 +326,8 @@ function cardHtml(p) {
   const captionPanel =
     '<div class="card-caption" id="cap-' + c + '" style="display:none">' +
       '<div class="cap-bar">' +
-        '<button class="cap-copy" id="capcopy-' + c + '" style="display:none" onclick="copyCaption(\'' + c + '\')">📋 คัดลอกข้อความ</button>' +
         '<a class="cap-fb" id="fb-' + c + '" style="display:none" target="_blank" rel="noopener"></a>' +
+        '<button class="cap-copy" id="capcopy-' + c + '" style="display:none" onclick="copyCaption(\'' + c + '\')">📋 คัดลอกข้อความ</button>' +
       '</div>' +
       '<pre class="cap-text" id="captext-' + c + '"></pre>' +
     '</div>';
@@ -433,18 +470,66 @@ async function loadData() {
   }
 }
 
-// ─── STAFF TOKEN + helpers ─────────────────────────────────
+// ─── STAFF LOGIN — ล็อกอินครั้งเดียว ปลดล็อกทุกการ์ด ─────────
 function getStaffToken() { try { return sessionStorage.getItem(STAFF_TOKEN_KEY) || ''; } catch (e) { return ''; } }
 function setStaffToken(t) { try { if (t) sessionStorage.setItem(STAFF_TOKEN_KEY, t); else sessionStorage.removeItem(STAFF_TOKEN_KEY); } catch (e) {} }
-function ensureToken(msg) {
-  let token = getStaffToken();
-  if (!token) {
-    token = prompt(msg || 'ใส่รหัสพนักงาน (รหัสเดียวกับปุ่ม Staff ในแคทตาลอค):', '');
-    if (token == null) return '';
-    token = token.trim();
-  }
-  return token;
+function isLoggedIn() { return !!getStaffToken(); }
+
+function updateAuthUI() {
+  const inn = isLoggedIn();
+  document.body.classList.toggle('locked', !inn);
+  const btn = document.getElementById('authBtn');
+  if (btn) btn.textContent = inn ? '⭐ ทีมงาน (ออก)' : '🔒 ล็อกอินทีมงาน';
+  const banner = document.getElementById('lockBanner');
+  if (banner) banner.style.display = inn ? 'none' : '';
 }
+function requireLogin() {
+  if (isLoggedIn()) return true;
+  openLogin();
+  return false;
+}
+function authBtnClick() {
+  if (isLoggedIn()) { if (confirm('ออกจากระบบทีมงาน?')) logout(); }
+  else openLogin();
+}
+function logout() { setStaffToken(''); updateAuthUI(); showToast('👋 ออกจากระบบแล้ว'); }
+
+function openLogin() {
+  const m = document.getElementById('loginModal');
+  if (!m) return;
+  document.getElementById('loginErr').textContent = '';
+  document.getElementById('loginPw').value = '';
+  m.classList.add('open');
+  setTimeout(function() { const i = document.getElementById('loginPw'); if (i) i.focus(); }, 50);
+}
+function closeLogin() { const m = document.getElementById('loginModal'); if (m) m.classList.remove('open'); }
+
+// ตรวจรหัสกับ backend แบบเบา (action=caption ไม่ส่ง code → ถ้า token ถูก msg!='unauthorized')
+async function doLogin() {
+  const inp = document.getElementById('loginPw');
+  const errEl = document.getElementById('loginErr');
+  const okBtn = document.getElementById('loginOkBtn');
+  const pw = (inp.value || '').trim();
+  if (!pw) { errEl.textContent = 'กรุณาใส่รหัส'; return; }
+  errEl.textContent = '⏳ กำลังตรวจสอบ...';
+  if (okBtn) okBtn.disabled = true;
+  try {
+    const j = await (await fetch(GOOGLE_APPS_SCRIPT_BASE + '?action=caption&token=' + encodeURIComponent(pw))).json();
+    if (j && j.msg === 'unauthorized') {
+      errEl.textContent = '❌ รหัสไม่ถูกต้อง';
+    } else {
+      setStaffToken(pw);
+      updateAuthUI();
+      closeLogin();
+      showToast('✅ ปลดล็อกทุกการ์ดแล้ว');
+    }
+  } catch (e) {
+    errEl.textContent = '⚠️ เชื่อมต่อไม่ได้: ' + e.message;
+  } finally {
+    if (okBtn) okBtn.disabled = false;
+  }
+}
+
 function copyText(t) {
   t = (t == null) ? '' : String(t);
   if (!t.trim()) { showToast('⚠️ ไม่มีข้อความให้คัดลอก'); return; }
@@ -492,9 +577,9 @@ function swapCard(oldCard, newProp) {
 async function hideProp(code, btn) {
   code = String(code || '').trim();
   if (!code) return;
+  if (!requireLogin()) return;
   if (!confirm('ลบ ' + code + ' ออกจากตารางโพส?\n\nจะลบคำว่า "สวย" ในคอลัมน์ U ของชีต — ทรัพย์นี้จะไม่ถูกสุ่มขึ้นอีก\n(กู้คืนได้โดยพิมพ์ "สวย" กลับในชีต)')) return;
-  const token = ensureToken('ใส่รหัสพนักงานเพื่อยืนยันการลบ\n(รหัสเดียวกับปุ่ม Staff ในแคทตาลอค):');
-  if (!token) return;
+  const token = getStaffToken();
 
   if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
   try {
@@ -508,7 +593,7 @@ async function hideProp(code, btn) {
       if (card) swapCard(card, pickReplacement(type, [code])); else refreshSummary();
       showToast('🗑️ ลบ ' + code + ' แล้ว — สุ่มทรัพย์ใหม่มาแทน');
     } else if (json && json.msg === 'unauthorized') {
-      setStaffToken(''); showToast('❌ รหัสพนักงานไม่ถูกต้อง');
+      setStaffToken(''); updateAuthUI(); showToast('🔒 เซสชันหมดอายุ — ล็อกอินใหม่'); openLogin();
       if (btn) { btn.disabled = false; btn.textContent = '🗑️ ลบ'; }
     } else {
       showToast('⚠️ ลบไม่สำเร็จ: ' + ((json && json.msg) || 'backend ยังไม่ได้ redeploy'));
@@ -524,9 +609,9 @@ async function hideProp(code, btn) {
 async function markPosted(code, btn) {
   code = String(code || '').trim();
   if (!code) return;
+  if (!requireLogin()) return;
   if (!confirm('ยืนยันว่าโพส ' + code + ' แล้ว?\n\nจะบันทึกวันที่วันนี้ลงคอลัมน์ S แล้วสุ่มทรัพย์ใหม่มาแทน')) return;
-  const token = ensureToken('ใส่รหัสพนักงานเพื่อยืนยัน\n(รหัสเดียวกับปุ่ม Staff ในแคทตาลอค):');
-  if (!token) return;
+  const token = getStaffToken();
 
   if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
   try {
@@ -541,7 +626,7 @@ async function markPosted(code, btn) {
       if (card) swapCard(card, pickReplacement(type, [code])); else refreshSummary();
       showToast('✅ บันทึกวันโพส ' + code + ' (' + json.dateS + ') — สุ่มใหม่มาแทน');
     } else if (json && json.msg === 'unauthorized') {
-      setStaffToken(''); showToast('❌ รหัสพนักงานไม่ถูกต้อง');
+      setStaffToken(''); updateAuthUI(); showToast('🔒 เซสชันหมดอายุ — ล็อกอินใหม่'); openLogin();
       if (btn) { btn.disabled = false; btn.textContent = '✅ โพสแล้ว'; }
     } else {
       showToast('⚠️ บันทึกไม่สำเร็จ: ' + ((json && json.msg) || 'backend ยังไม่ได้ redeploy'));
@@ -560,12 +645,12 @@ async function toggleCaption(code, btn) {
   const panel = document.getElementById('cap-' + code);
   if (!panel) return;
   if (panel.style.display !== 'none') { panel.style.display = 'none'; if (btn) btn.classList.remove('active'); return; }
+  if (!requireLogin()) return;
   panel.style.display = '';
   if (btn) btn.classList.add('active');
   if (panel.dataset.loaded === '1') return;
 
-  const token = ensureToken('ใส่รหัสพนักงานเพื่อดูข้อความประกาศ + ลิงก์ FB:');
-  if (!token) { panel.style.display = 'none'; if (btn) btn.classList.remove('active'); return; }
+  const token = getStaffToken();
   const pre = document.getElementById('captext-' + code);
   pre.textContent = 'กำลังโหลด…';
   try {
@@ -586,8 +671,9 @@ async function toggleCaption(code, btn) {
       panel.dataset.loaded = '1';
       const cb = document.getElementById('capcopy-' + code); if (cb) cb.style.display = '';
     } else if (j && j.msg === 'unauthorized') {
-      setStaffToken('');
-      pre.textContent = '❌ รหัสพนักงานไม่ถูกต้อง (กดปุ่มอีกครั้งเพื่อลองใหม่)';
+      setStaffToken(''); updateAuthUI();
+      pre.textContent = '🔒 เซสชันหมดอายุ — ล็อกอินใหม่';
+      openLogin();
     } else {
       setStaffToken(token);
       pre.textContent = '— ยังไม่มีไฟล์ประกาศ (' + code + '-1.txt)';
@@ -598,11 +684,19 @@ async function toggleCaption(code, btn) {
   }
 }
 
-// โหลดข้อมูลอัตโนมัติ
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', loadData);
-} else {
+// ปิดหน้าล็อกอินด้วยปุ่ม Escape
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeLogin(); });
+
+// เริ่มทำงาน: อัปเดตสถานะล็อก → โหลดข้อมูล → ถ้ายังไม่ล็อกอินให้เปิดหน้าล็อกอิน
+function init() {
+  updateAuthUI();
   loadData();
+  if (!isLoggedIn()) openLogin();
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
 }
 </script>
 </body>
