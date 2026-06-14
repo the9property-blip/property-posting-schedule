@@ -82,17 +82,17 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f4f8; color: 
 .tag-pet-other { background: #fef9e7; color: #b7770d; }
 .post-meta { font-size: 0.72rem; color: #718096; }
 .post-meta.new { color: #276749; font-weight: 700; }
-.card-tools { padding: 10px 12px 0; }
-.btn-caption { width: 100%; background: #eef2f7; color: #2c5282; border: 1px solid #cbd5e0; border-radius: 8px; padding: 7px; font-size: 0.74rem; font-weight: 700; cursor: pointer; font-family: inherit; }
-.btn-caption:hover { background: #e2e8f0; }
-.btn-caption.active { background: #dbeafe; border-color: #90cdf4; }
-.card-caption { padding: 8px 12px 0; }
-.cap-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
-.cap-copy { background: #06c755; color: #fff; border: none; border-radius: 7px; padding: 6px 10px; font-size: 0.72rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+/* caption + Link FB — โชว์เฉพาะตอนล็อกอิน (body ไม่มี .locked) */
+.card-caption { display: none; padding: 8px 12px 0; }
+body:not(.locked) .card-caption { display: block; }
+.cap-fb-row { font-size: 0.73rem; margin-bottom: 6px; color: #2d3748; }
+.cap-fb-row b { color: #1877f2; }
+.cap-fb-val a { color: #1877f2; font-weight: 700; text-decoration: none; }
+.cap-fb-val a:hover { text-decoration: underline; }
+.cap-text { white-space: pre-wrap; word-break: break-word; font-size: 0.72rem; line-height: 1.55; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; max-height: 180px; overflow: auto; color: #2d3748; font-family: inherit; }
+.cap-copy-row { text-align: right; margin-top: 4px; }
+.cap-copy { background: #06c755; color: #fff; border: none; border-radius: 6px; padding: 4px 11px; font-size: 0.68rem; font-weight: 700; cursor: pointer; font-family: inherit; }
 .cap-copy:hover { filter: brightness(1.08); }
-.cap-fb { font-size: 0.72rem; color: #1877f2; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; padding: 6px 9px; background: #eaf2ff; border: 1px solid #c7dcff; border-radius: 7px; }
-.cap-fb:hover { background: #dbe8ff; }
-.cap-text { white-space: pre-wrap; word-break: break-word; font-size: 0.72rem; line-height: 1.55; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; max-height: 190px; overflow: auto; color: #2d3748; font-family: inherit; }
 .card-footer { padding: 8px 12px 12px; display: flex; gap: 7px; }
 .btn-posted { flex: 1; background: linear-gradient(135deg, #2c7a4b, #276749); color: #fff; border: none; border-radius: 8px; padding: 8px; font-size: 0.74rem; font-weight: 700; cursor: pointer; font-family: inherit; }
 .btn-posted:hover { filter: brightness(1.12); }
@@ -113,7 +113,7 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f4f8; color: 
 .lock-banner { background: #fffbeb; border: 1px solid #f6ad55; color: #744210; padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .lock-banner-btn { background: #f6c244; color: #1a365d; border: none; padding: 5px 12px; border-radius: 7px; font-weight: 700; cursor: pointer; font-family: inherit; font-size: 13px; }
 .lock-banner-btn:hover { background: #f3b619; }
-body.locked .btn-posted, body.locked .btn-delete, body.locked .btn-caption { opacity: 0.5; }
+body.locked .btn-posted, body.locked .btn-delete { opacity: 0.5; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.55); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 16px; }
 .modal-overlay.open { display: flex; }
 .login-box { background: #fff; border-radius: 16px; padding: 24px 22px; width: 100%; max-width: 340px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); text-align: center; }
@@ -142,7 +142,7 @@ body.locked .btn-posted, body.locked .btn-delete, body.locked .btn-caption { opa
 
 <div class="rule-box">
   <b>📌 กฎการสุ่ม</b>
-  เรียงจากวันโพสเก่าสุดก่อน → สุ่มสูงสุด 6 รหัส/ประเภท → <b>ห้ามข้ามวัน</b> (ต้องโพสทรัพย์วันเดิมให้ครบก่อน)
+  เรียงจากวันโพสเก่าสุดก่อน → สุ่มสูงสุด 3 รหัส/ประเภท → <b>ห้ามข้ามวัน</b> (ต้องโพสทรัพย์วันเดิมให้ครบก่อน)
   <div class="del-hint">✅ "โพสแล้ว" = บันทึกวันโพสวันนี้ลงคอลัมน์ S แล้วสุ่มทรัพย์ใหม่มาแทน &nbsp;•&nbsp; 🗑️ "ลบ" = ลบคำว่า "สวย" ในคอลัมน์ U (ไม่ขึ้นอีก, พิมพ์ "สวย" กลับเพื่อกู้คืน) &nbsp;•&nbsp; 📝 "ข้อความโพส + FB" = ดู/คัดลอกประกาศ + ลิงก์โพส FB</div>
 </div>
 
@@ -170,7 +170,7 @@ body.locked .btn-posted, body.locked .btn-delete, body.locked .btn-caption { opa
 const GOOGLE_APPS_SCRIPT_BASE = 'https://script.google.com/macros/s/AKfycbxu4qqxY58PGGIRBIfLWkCwj9TMIUdCB3DWg7xT2setU60hQsjDwisCplNVpka9UW-zFg/exec';
 const CSV_URL     = GOOGLE_APPS_SCRIPT_BASE + '?format=csv';     // ดึงตารางทรัพย์ (ทุกคอลัมน์)
 const FOLDERS_URL = GOOGLE_APPS_SCRIPT_BASE + '?format=folders'; // ดึง { code: {url, thumb} }
-const MAX_PER_TYPE = 6;
+const MAX_PER_TYPE = 3;
 const STAFF_TOKEN_KEY = 'sched_staff_token';
 
 let cachedProps = null;
@@ -324,12 +324,10 @@ function cardHtml(p) {
 
   const c = escapeAttr(p.code);
   const captionPanel =
-    '<div class="card-caption" id="cap-' + c + '" style="display:none">' +
-      '<div class="cap-bar">' +
-        '<a class="cap-fb" id="fb-' + c + '" style="display:none" target="_blank" rel="noopener"></a>' +
-        '<button class="cap-copy" id="capcopy-' + c + '" style="display:none" onclick="copyCaption(\'' + c + '\')">📋 คัดลอกข้อความ</button>' +
-      '</div>' +
-      '<pre class="cap-text" id="captext-' + c + '"></pre>' +
+    '<div class="card-caption" id="cap-' + c + '">' +
+      '<div class="cap-fb-row"><b>Link FB:</b> <span class="cap-fb-val" id="fb-' + c + '">…</span></div>' +
+      '<pre class="cap-text" id="captext-' + c + '">กำลังโหลดข้อความ…</pre>' +
+      '<div class="cap-copy-row"><button class="cap-copy" id="capcopy-' + c + '" style="display:none" onclick="copyCaption(\'' + c + '\')">📋 คัดลอก</button></div>' +
     '</div>';
 
   return '<div class="card" data-code="' + c + '" data-type="' + escapeAttr(p.type) + '">' +
@@ -345,7 +343,6 @@ function cardHtml(p) {
       '<div class="card-tags">' + tags + '</div>' +
       meta +
     '</div>' +
-    '<div class="card-tools"><button class="btn-caption" onclick="toggleCaption(\'' + c + '\', this)">📝 ข้อความโพส + FB</button></div>' +
     captionPanel +
     '<div class="card-footer">' +
       '<button class="btn-posted" onclick="markPosted(\'' + c + '\', this)" title="บันทึกวันโพสวันนี้ลงคอลัมน์ S แล้วสุ่มใหม่">✅ โพสแล้ว</button>' +
@@ -404,6 +401,7 @@ function reshuffle() {
   if (!cachedProps) { loadData(); return; }
   document.getElementById('output').innerHTML = buildScheduleHTML(cachedProps);
   refreshSummary();
+  refreshCaptions();
 }
 
 async function loadData() {
@@ -464,6 +462,7 @@ async function loadData() {
     cachedProps = props;
     output.innerHTML = buildScheduleHTML(props);
     refreshSummary();
+    refreshCaptions();
   } catch (err) {
     output.innerHTML = '<div class="error-box">❌ ' + escapeHtml(err.message) + '</div>';
     console.error(err);
@@ -522,6 +521,7 @@ async function doLogin() {
       updateAuthUI();
       closeLogin();
       showToast('✅ ปลดล็อกทุกการ์ดแล้ว');
+      refreshCaptions();
     }
   } catch (e) {
     errEl.textContent = '⚠️ เชื่อมต่อไม่ได้: ' + e.message;
@@ -570,6 +570,7 @@ function swapCard(oldCard, newProp) {
       if (sec && !sec.querySelector('.card')) sec.remove();
     }
     refreshSummary();
+    refreshCaptions();
   }, 260);
 }
 
@@ -638,50 +639,65 @@ async function markPosted(code, btn) {
   }
 }
 
-// ─── ปุ่ม 📝 ข้อความโพส + FB: ดึง {รหัส}-1.txt + ลิงก์โพส FB (staff) ───
+// ─── ข้อความโพส {รหัส}-1.txt + Link FB — โชว์ในการ์ดเลยหลังล็อกอิน ───
 var _capText = {};
 function copyCaption(code) { copyText(_capText[code] || ''); }
-async function toggleCaption(code, btn) {
+
+// เติมข้อความ + Link FB ลงการ์ดหนึ่งใบ
+function fillCaptionCard(code, caption, fb) {
   const panel = document.getElementById('cap-' + code);
   if (!panel) return;
-  if (panel.style.display !== 'none') { panel.style.display = 'none'; if (btn) btn.classList.remove('active'); return; }
-  if (!requireLogin()) return;
-  panel.style.display = '';
-  if (btn) btn.classList.add('active');
-  if (panel.dataset.loaded === '1') return;
-
-  const token = getStaffToken();
+  panel.dataset.loaded = '1';
   const pre = document.getElementById('captext-' + code);
-  pre.textContent = 'กำลังโหลด…';
-  try {
-    const url = GOOGLE_APPS_SCRIPT_BASE + '?action=caption&code=' + encodeURIComponent(code) + '&token=' + encodeURIComponent(token);
-    const j = await (await fetch(url)).json();
-    // ลิงก์โพส FB (ส่งมาด้วยเสมอถ้า token ถูก) — ใช้เช็คว่าเจ้าของอัปเดต/ปล่อยเช่าแล้วยัง
-    const fbEl = document.getElementById('fb-' + code);
-    const fb = (j && j.fb) ? String(j.fb).trim() : '';
-    if (fbEl) {
-      if (/^https?:\/\//i.test(fb)) { fbEl.href = fb; fbEl.textContent = '↗ ดูโพสต์ FB (เช็คปล่อยเช่ายัง)'; fbEl.style.display = ''; }
-      else if (fb) { fbEl.removeAttribute('href'); fbEl.textContent = 'FB: ' + fb; fbEl.style.display = ''; }
-      else { fbEl.style.display = 'none'; }
-    }
-    if (j && j.ok && j.caption) {
-      setStaffToken(token);
-      _capText[code] = j.caption;
-      pre.textContent = j.caption;
-      panel.dataset.loaded = '1';
-      const cb = document.getElementById('capcopy-' + code); if (cb) cb.style.display = '';
-    } else if (j && j.msg === 'unauthorized') {
-      setStaffToken(''); updateAuthUI();
-      pre.textContent = '🔒 เซสชันหมดอายุ — ล็อกอินใหม่';
-      openLogin();
-    } else {
-      setStaffToken(token);
-      pre.textContent = '— ยังไม่มีไฟล์ประกาศ (' + code + '-1.txt)';
-      panel.dataset.loaded = '1';
-    }
-  } catch (err) {
-    pre.textContent = '— โหลดไม่สำเร็จ: ' + err.message;
+  if (pre) {
+    if (caption) { _capText[code] = caption; pre.textContent = caption; }
+    else { pre.textContent = '— ยังไม่มีไฟล์ประกาศ (' + code + '-1.txt)'; }
   }
+  const cb = document.getElementById('capcopy-' + code);
+  if (cb) cb.style.display = caption ? '' : 'none';
+  const fbEl = document.getElementById('fb-' + code);
+  if (fbEl) {
+    fb = (fb || '').trim();
+    if (/^https?:\/\//i.test(fb)) fbEl.innerHTML = '<a href="' + escapeAttr(fb) + '" target="_blank" rel="noopener">เปิดโพสต์ ↗</a>';
+    else if (fb) fbEl.textContent = fb;
+    else fbEl.textContent = '— (ยังไม่มีลิงก์)';
+  }
+}
+
+// โหลด caption + FB ของการ์ดที่ยังไม่ได้โหลด (ครั้งเดียวหลายรหัส) — เรียกเมื่อล็อกอินแล้ว
+async function refreshCaptions() {
+  if (!isLoggedIn()) return;
+  const token = getStaffToken();
+  const codes = [];
+  document.querySelectorAll('.card-caption').forEach(function(p) {
+    if (p.dataset.loaded === '1') return;
+    const code = p.id.replace('cap-', '');
+    if (code) codes.push(code);
+  });
+  if (!codes.length) return;
+  try {
+    const url = GOOGLE_APPS_SCRIPT_BASE + '?action=captions&token=' + encodeURIComponent(token) +
+                '&codes=' + encodeURIComponent(codes.join(','));
+    const j = await (await fetch(url)).json();
+    if (j && j.ok && j.items) {
+      codes.forEach(function(code) {
+        const it = j.items[code] || {};
+        fillCaptionCard(code, it.caption || '', it.fb || '');
+      });
+    } else if (j && j.msg === 'unauthorized') {
+      setStaffToken(''); updateAuthUI(); openLogin();
+    } else {
+      // backend ยังไม่มี action=captions (ยังไม่ได้ redeploy) → แจ้งบนการ์ด ไม่ให้ค้าง "กำลังโหลด"
+      codes.forEach(function(code) {
+        const pre = document.getElementById('captext-' + code);
+        if (pre) pre.textContent = '— redeploy backend เพื่อแสดงข้อความ + Link FB';
+        const fbEl = document.getElementById('fb-' + code);
+        if (fbEl) fbEl.textContent = '—';
+        const panel = document.getElementById('cap-' + code);
+        if (panel) panel.dataset.loaded = '1';
+      });
+    }
+  } catch (err) { /* เงียบไว้ — ลองใหม่รอบถัดไป */ }
 }
 
 // ปิดหน้าล็อกอินด้วยปุ่ม Escape
