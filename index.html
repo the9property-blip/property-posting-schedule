@@ -639,65 +639,82 @@ async function markPosted(code, btn) {
   }
 }
 
-// ─── ข้อความโพส {รหัส}-1.txt + Link FB — โชว์ในการ์ดเลยหลังล็อกอิน ───
+// ─── ข้อความโพส {รหัส}-1.txt + Link FB — ทำแบบเดียวกับหน้า catalog (ข้อมูลทีมงาน) ───
+//   FB: ดึงจาก JSON หลัก ?token= (item.facebook) เหมือน catalog — live อยู่แล้ว ไม่ต้อง redeploy
+//   ข้อความ: ดึงจาก ?action=caption&code=&token= เหมือน catalog — live อยู่แล้ว
 var _capText = {};
+var _fbByCode = {};        // { CODE: facebook } จาก JSON หลัก
+var _fbLoaded = false;
 function copyCaption(code) { copyText(_capText[code] || ''); }
 
-// เติมข้อความ + Link FB ลงการ์ดหนึ่งใบ
-function fillCaptionCard(code, caption, fb) {
+// โหลด map facebook ต่อรหัส จาก JSON หลัก (เหมือน catalog: doGet ส่ง item.facebook เมื่อมี token)
+async function loadFbMap() {
+  const token = getStaffToken();
+  if (!token) return;
+  try {
+    const j = await (await fetch(GOOGLE_APPS_SCRIPT_BASE + '?token=' + encodeURIComponent(token))).json();
+    if (j && j.data) {
+      j.data.forEach(function(it) { if (it && it.code) _fbByCode[String(it.code).toUpperCase()] = it.facebook || ''; });
+      _fbLoaded = true;
+    }
+  } catch (e) { /* ลองใหม่รอบหน้า */ }
+}
+
+// เซ็ตแถว Link FB ของการ์ด (จาก _fbByCode)
+function setFbRow(code) {
+  const fbEl = document.getElementById('fb-' + code);
+  if (!fbEl) return;
+  const fb = (_fbByCode[String(code).toUpperCase()] || '').trim();
+  if (/^https?:\/\//i.test(fb)) fbEl.innerHTML = '<a href="' + escapeAttr(fb) + '" target="_blank" rel="noopener">เปิดโพสต์ ↗</a>';
+  else if (fb) fbEl.textContent = fb;          // เช่น "Survey"
+  else fbEl.textContent = '— (ยังไม่มีลิงก์)';
+}
+
+// โหลดข้อความประกาศของรหัสเดียว (เหมือน catalog: ?action=caption) แล้วเติมลงการ์ด
+async function loadOneCaption(code) {
   const panel = document.getElementById('cap-' + code);
   if (!panel) return;
-  panel.dataset.loaded = '1';
+  setFbRow(code);
+  if (panel.dataset.loaded === '1') return;
   const pre = document.getElementById('captext-' + code);
-  if (pre) {
-    if (caption) { _capText[code] = caption; pre.textContent = caption; }
-    else { pre.textContent = '— ยังไม่มีไฟล์ประกาศ (' + code + '-1.txt)'; }
-  }
-  const cb = document.getElementById('capcopy-' + code);
-  if (cb) cb.style.display = caption ? '' : 'none';
-  const fbEl = document.getElementById('fb-' + code);
-  if (fbEl) {
-    fb = (fb || '').trim();
-    if (/^https?:\/\//i.test(fb)) fbEl.innerHTML = '<a href="' + escapeAttr(fb) + '" target="_blank" rel="noopener">เปิดโพสต์ ↗</a>';
-    else if (fb) fbEl.textContent = fb;
-    else fbEl.textContent = '— (ยังไม่มีลิงก์)';
+  const token = getStaffToken();
+  try {
+    const url = GOOGLE_APPS_SCRIPT_BASE + '?action=caption&code=' + encodeURIComponent(code) + '&token=' + encodeURIComponent(token);
+    const j = await (await fetch(url)).json();
+    if (j && j.msg === 'unauthorized') { setStaffToken(''); updateAuthUI(); openLogin(); return; }
+    if (j && j.ok && j.caption) {
+      _capText[code] = j.caption;
+      if (pre) pre.textContent = j.caption;
+      const cb = document.getElementById('capcopy-' + code); if (cb) cb.style.display = '';
+    } else {
+      if (pre) pre.textContent = '— ยังไม่มีไฟล์ประกาศ (' + code + '-1.txt)';
+    }
+    panel.dataset.loaded = '1';
+  } catch (e) {
+    if (pre) pre.textContent = '— โหลดไม่สำเร็จ (ลองโหลดข้อมูลใหม่)';
   }
 }
 
-// โหลด caption + FB ของการ์ดที่ยังไม่ได้โหลด (ครั้งเดียวหลายรหัส) — เรียกเมื่อล็อกอินแล้ว
+// รันงาน async แบบจำกัดจำนวนพร้อมกัน (กันยิงทีเดียวเยอะ)
+async function runPool(items, limit, worker) {
+  let i = 0;
+  async function next() { while (i < items.length) { await worker(items[i++]); } }
+  const runners = [];
+  for (let k = 0; k < Math.min(limit, items.length); k++) runners.push(next());
+  await Promise.all(runners);
+}
+
+// โหลด Link FB + ข้อความ ของการ์ดที่ยังไม่ได้โหลด — เรียกเมื่อล็อกอินแล้ว
 async function refreshCaptions() {
   if (!isLoggedIn()) return;
-  const token = getStaffToken();
+  if (!_fbLoaded) await loadFbMap();        // โหลด facebook map ครั้งเดียว
   const codes = [];
   document.querySelectorAll('.card-caption').forEach(function(p) {
-    if (p.dataset.loaded === '1') return;
     const code = p.id.replace('cap-', '');
-    if (code) codes.push(code);
+    if (code && p.dataset.loaded !== '1') codes.push(code);
   });
   if (!codes.length) return;
-  try {
-    const url = GOOGLE_APPS_SCRIPT_BASE + '?action=captions&token=' + encodeURIComponent(token) +
-                '&codes=' + encodeURIComponent(codes.join(','));
-    const j = await (await fetch(url)).json();
-    if (j && j.ok && j.items) {
-      codes.forEach(function(code) {
-        const it = j.items[code] || {};
-        fillCaptionCard(code, it.caption || '', it.fb || '');
-      });
-    } else if (j && j.msg === 'unauthorized') {
-      setStaffToken(''); updateAuthUI(); openLogin();
-    } else {
-      // backend ยังไม่มี action=captions (ยังไม่ได้ redeploy) → แจ้งบนการ์ด ไม่ให้ค้าง "กำลังโหลด"
-      codes.forEach(function(code) {
-        const pre = document.getElementById('captext-' + code);
-        if (pre) pre.textContent = '— redeploy backend เพื่อแสดงข้อความ + Link FB';
-        const fbEl = document.getElementById('fb-' + code);
-        if (fbEl) fbEl.textContent = '—';
-        const panel = document.getElementById('cap-' + code);
-        if (panel) panel.dataset.loaded = '1';
-      });
-    }
-  } catch (err) { /* เงียบไว้ — ลองใหม่รอบถัดไป */ }
+  await runPool(codes, 6, loadOneCaption);   // โหลดข้อความทีละไม่เกิน 6 รหัสพร้อมกัน (เท่าลิมิต browser)
 }
 
 // ปิดหน้าล็อกอินด้วยปุ่ม Escape
