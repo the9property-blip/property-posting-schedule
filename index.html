@@ -40,6 +40,8 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f4f8; color: 
 .type-section.t-condo { border-left-color: #6b46c1; }
 .type-section.t-pool  { border-left-color: #0987a0; }
 .type-section.t-other { border-left-color: #9b2c2c; }
+.type-section.t-survey { border-left-color: #7c3aed; }
+.type-section.t-survey .type-name { color: #6b46c1; }
 .type-header { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .type-name { font-size: 17px; font-weight: 700; color: #2d3748; }
 .type-count { font-size: 12px; color: #a0aec0; }
@@ -60,6 +62,7 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f4f8; color: 
 .status-badge { position: absolute; top: 8px; left: 8px; font-size: 0.66rem; padding: 3px 9px; border-radius: 50px; font-weight: 800; color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
 .status-ready { background: linear-gradient(135deg, #2ecc71, #27ae60); }
 .status-soon  { background: linear-gradient(135deg, #ff9f43, #ee5a24); }
+.survey-badge { position: absolute; top: 8px; right: 8px; font-size: 0.62rem; font-weight: 800; padding: 3px 9px; border-radius: 50px; background: linear-gradient(135deg, #a78bfa, #7c3aed); color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
 .card-header { padding: 11px 13px 9px; background: linear-gradient(135deg, #0f3460, #16213e); color: #fff; position: relative; }
 .card-code { font-size: 0.64rem; opacity: 0.7; letter-spacing: 1px; margin-bottom: 3px; }
 .card-code .code-link { color: #8fe3b0; text-decoration: none; font-weight: 700; opacity: 1; }
@@ -143,7 +146,7 @@ body.locked .btn-posted, body.locked .btn-delete { opacity: 0.5; }
 <div class="rule-box">
   <b>📌 กฎการสุ่ม</b>
   เรียงจากวันโพสเก่าสุดก่อน → สุ่มสูงสุด 3 รหัส/ประเภท → <b>ห้ามข้ามวัน</b> (ต้องโพสทรัพย์วันเดิมให้ครบก่อน)
-  <div class="del-hint">✅ "โพสแล้ว" = บันทึกวันโพสวันนี้ลงคอลัมน์ S แล้วสุ่มทรัพย์ใหม่มาแทน &nbsp;•&nbsp; 🗑️ "ลบ" = ลบคำว่า "สวย" ในคอลัมน์ U (ไม่ขึ้นอีก, พิมพ์ "สวย" กลับเพื่อกู้คืน) &nbsp;•&nbsp; 📝 "ข้อความโพส + FB" = ดู/คัดลอกประกาศ + ลิงก์โพส FB</div>
+  <div class="del-hint">✅ "โพสแล้ว" = บันทึกวันโพสลง col S แล้วสุ่มใหม่ &nbsp;•&nbsp; 🗑️ "ลบ" = เอาคำว่า "สวย" ออกจาก col U (พิมพ์กลับเพื่อกู้คืน) &nbsp;•&nbsp; 🔍 <b>กลุ่ม Survey</b> = ทรัพย์ที่ col A มี "Survey" (ไม่มีปุ่มลบ) &nbsp;•&nbsp; ล็อกอินเพื่อดู Link FB + ข้อความ + ปุ่มคัดลอก</div>
 </div>
 
 <div id="lockBanner" class="lock-banner" style="display:none">🔒 ปุ่มทุกการ์ดถูกล็อกอยู่ — <button class="lock-banner-btn" onclick="openLogin()">ล็อกอินทีมงาน</button> เพื่อใช้งาน ✅ โพสแล้ว / 🗑️ ลบ / 📝 ข้อความ + FB</div>
@@ -173,7 +176,8 @@ const FOLDERS_URL = GOOGLE_APPS_SCRIPT_BASE + '?format=folders'; // ดึง { 
 const MAX_PER_TYPE = 3;
 const STAFF_TOKEN_KEY = 'sched_staff_token';
 
-let cachedProps = null;
+let cachedProps = null;    // กลุ่มหลัก (ไม่ใช่ Co/Survey + มี "สวย")
+let cachedSurvey = null;   // กลุ่ม Survey (col A = "Survey")
 let cachedFolders = {};   // { code: {url, thumb} }  (รองรับ shape เก่าที่เป็น url string ด้วย)
 
 // ─── helpers ───────────────────────────────────────────────
@@ -298,15 +302,17 @@ function showToast(msg) {
   _toastT = setTimeout(function(){ t.classList.remove('show'); }, 2800);
 }
 
-// ─── render การ์ด ──────────────────────────────────────────
-function cardHtml(p) {
+// ─── render การ์ด (opts.survey = การ์ดกลุ่ม Survey: มีป้าย Survey + ไม่มีปุ่มลบ) ──
+function cardHtml(p, opts) {
+  opts = opts || {};
   const fi = folderInfo(p.code);
   const inner = fi.thumb
     ? '<img src="' + photoUrl(fi.thumb, 400) + '" loading="lazy" alt="' + escapeAttr(p.project) + '" onerror="onPhotoError(this,\'' + fi.thumb + '\')">'
     : '<div class="card-photo-placeholder"><span class="ph-icon">🏠</span><span>ยังไม่มีรูป</span></div>';
   const st = statusInfo(p.status);
   const stBadge = st.label ? '<span class="status-badge ' + (st.ready ? 'status-ready' : 'status-soon') + '">' + escapeHtml(st.label) + '</span>' : '';
-  const photo = '<div class="card-photo">' + inner + stBadge + '</div>';
+  const surveyBadge = opts.survey ? '<span class="survey-badge">Survey</span>' : '';
+  const photo = '<div class="card-photo">' + inner + stBadge + surveyBadge + '</div>';
 
   const codeHtml = fi.url
     ? '<a class="code-link" href="' + escapeAttr(fi.url) + '" target="_blank" rel="noopener" title="เปิดโฟลเดอร์ Drive">' + escapeHtml(p.code) + ' 📁</a>'
@@ -330,7 +336,12 @@ function cardHtml(p) {
       '<div class="cap-copy-row"><button class="cap-copy" id="capcopy-' + c + '" style="display:none" onclick="copyCaption(\'' + c + '\')">📋 คัดลอก</button></div>' +
     '</div>';
 
-  return '<div class="card" data-code="' + c + '" data-type="' + escapeAttr(p.type) + '">' +
+  const postedBtn = '<button class="btn-posted" onclick="markPosted(\'' + c + '\', this)" title="บันทึกวันโพสวันนี้ลงคอลัมน์ S แล้วสุ่มใหม่">✅ โพสแล้ว</button>';
+  const delBtn = '<button class="btn-delete" onclick="hideProp(\'' + c + '\', this)" title="ลบคำว่า สวย ในชีต — ไม่ให้ขึ้นตารางอีก">🗑️ ลบ</button>';
+  // กลุ่ม Survey: ไม่มีปุ่มลบ (ลบ=เอา "สวย" ออก ซึ่งไม่เกี่ยวกับ Survey)
+  const footer = '<div class="card-footer">' + postedBtn + (opts.survey ? '' : delBtn) + '</div>';
+
+  return '<div class="card" data-code="' + c + '" data-type="' + escapeAttr(p.type) + '"' + (opts.survey ? ' data-survey="1"' : '') + '>' +
     photo +
     '<div class="card-header">' +
       '<div class="card-code">' + codeHtml + '</div>' +
@@ -344,10 +355,36 @@ function cardHtml(p) {
       meta +
     '</div>' +
     captionPanel +
-    '<div class="card-footer">' +
-      '<button class="btn-posted" onclick="markPosted(\'' + c + '\', this)" title="บันทึกวันโพสวันนี้ลงคอลัมน์ S แล้วสุ่มใหม่">✅ โพสแล้ว</button>' +
-      '<button class="btn-delete" onclick="hideProp(\'' + c + '\', this)" title="ลบคำว่า สวย ในชีต — ไม่ให้ขึ้นตารางอีก">🗑️ ลบ</button>' +
+    footer +
+  '</div>';
+}
+
+// ─── render กลุ่ม Survey (col A = "Survey") เป็นเซกชันเดียว ไม่มีปุ่มลบ ───
+function buildSurveyHTML(props) {
+  if (!props || !props.length) return '';
+  const list = props.slice();
+  list.sort(function(a, b) {
+    const da = a.lastPostedDate ? a.lastPostedDate.getTime() : 0;
+    const db = b.lastPostedDate ? b.lastPostedDate.getTime() : 0;
+    return da - db;
+  });
+  const oldest = list[0].lastPostedDate;
+  const batch  = list.filter(function(p) { return sameDate(p.lastPostedDate, oldest); });
+  const picked = shuffle(batch).slice(0, MAX_PER_TYPE);
+  const remaining = batch.length - picked.length;
+  const neverPosted = !oldest;
+  const dateLabel = neverPosted
+    ? '<span class="batch-date new">🆕 ยังไม่เคยโพส</span>'
+    : '<span class="batch-date">📅 ' + escapeHtml(list[0].lastPostedStr) + '</span>';
+
+  return '<div class="type-section t-survey">' +
+    '<div class="type-header">' +
+      '<span class="type-name">🔍 Survey (สำรวจ)</span>' +
+      '<span class="type-count">' + list.length + ' ทรัพย์</span>' +
+      '<span class="type-meta">วันโพสเก่าสุด: ' + dateLabel + ' · Batch: <b>' + batch.length + '</b></span>' +
     '</div>' +
+    (remaining > 0 ? '<div class="warn">⚠️ Batch วันเดิมยังเหลืออีก ' + remaining + ' ทรัพย์ — โพสให้ครบก่อนข้ามวัน (กด 🎲 สุ่มใหม่ เพื่อหมุนชุดใหม่)</div>' : '') +
+    '<div class="card-grid">' + picked.map(function(p) { return cardHtml(p, { survey: true }); }).join('') + '</div>' +
   '</div>';
 }
 
@@ -390,16 +427,17 @@ function buildScheduleHTML(props) {
 function refreshSummary() {
   const bar = document.getElementById('summary-bar');
   const shown = document.querySelectorAll('.card').length;
-  const types = document.querySelectorAll('.type-section').length;
+  const types = document.querySelectorAll('.type-section:not(.t-survey)').length;
   const total = cachedProps ? cachedProps.length : 0;
+  const surveyTotal = cachedSurvey ? cachedSurvey.length : 0;
   bar.innerHTML =
-    '📦 ทรัพย์ "สวย" พร้อมโพส: <b>' + total + '</b> &nbsp;|&nbsp; ประเภท: <b>' + types + '</b> &nbsp;|&nbsp; สุ่มโพสรอบนี้: <b>' + shown + '</b> รหัส';
+    '📦 ทรัพย์ "สวย" พร้อมโพส: <b>' + total + '</b> &nbsp;|&nbsp; ประเภท: <b>' + types + '</b> &nbsp;|&nbsp; 🔍 Survey: <b>' + surveyTotal + '</b> &nbsp;|&nbsp; สุ่มโพสรอบนี้: <b>' + shown + '</b> รหัส';
   bar.style.display = 'flex';
 }
 
 function reshuffle() {
-  if (!cachedProps) { loadData(); return; }
-  document.getElementById('output').innerHTML = buildScheduleHTML(cachedProps);
+  if (!cachedProps && !cachedSurvey) { loadData(); return; }
+  document.getElementById('output').innerHTML = buildScheduleHTML(cachedProps || []) + buildSurveyHTML(cachedSurvey || []);
   refreshSummary();
   refreshCaptions();
 }
@@ -429,7 +467,8 @@ async function loadData() {
     const rows = parseCSV(csvText);
     if (rows.length < 2) throw new Error('CSV ว่าง หรือ parse ไม่สำเร็จ (rows=' + rows.length + ')');
 
-    const props = [];
+    const props = [];          // กลุ่มหลัก (ไม่ใช่ Co/Survey + มี "สวย" ใน U)
+    const surveyProps = [];     // กลุ่ม Survey (col A = "Survey")
     for (const row of rows.slice(1)) {
       const columnA = row[0] ? row[0].trim() : '';
       const code    = row[1] ? row[1].trim() : '';
@@ -437,13 +476,14 @@ async function loadData() {
       const lastPostedStr = row[18] ? row[18].trim() : '';
       const columnU = row[20] ? row[20].trim() : '';
 
-      // เงื่อนไข 1: ข้ามถ้าคอลัมน์ A มีคำว่า "Co"
+      // ข้ามถ้าคอลัมน์ A มีคำว่า "Co"
       if (columnA.includes('Co')) continue;
-      // เงื่อนไข 2: ต้องมี "สวย" ในคอลัมน์ U
-      if (!columnU.includes('สวย')) continue;
       if (!code || !type) continue;
+      const isSurvey = columnA.toLowerCase().includes('survey');
+      // กลุ่มหลักต้องมี "สวย" ใน U / กลุ่ม Survey ไม่ต้อง (เอาทุกแถวที่ col A = Survey)
+      if (!isSurvey && !columnU.includes('สวย')) continue;
 
-      props.push({
+      const item = {
         code:          code,
         location:      row[2] ? row[2].trim() : '',
         project:       row[3] ? row[3].trim() : '',
@@ -455,12 +495,14 @@ async function loadData() {
         pet:           row[9] ? row[9].trim() : '',
         lastPostedStr: lastPostedStr,
         lastPostedDate: parseDate(lastPostedStr)
-      });
+      };
+      if (isSurvey) surveyProps.push(item); else props.push(item);
     }
-    if (props.length === 0) throw new Error('ไม่พบทรัพย์ที่มีคำว่า "สวย" ในคอลัมน์ U (และไม่ใช่ Co)');
+    if (props.length === 0 && surveyProps.length === 0) throw new Error('ไม่พบทรัพย์ที่มี "สวย" ใน col U หรือ "Survey" ใน col A (และไม่ใช่ Co)');
 
     cachedProps = props;
-    output.innerHTML = buildScheduleHTML(props);
+    cachedSurvey = surveyProps;
+    output.innerHTML = buildScheduleHTML(props) + buildSurveyHTML(surveyProps);
     refreshSummary();
     refreshCaptions();
   } catch (err) {
@@ -552,14 +594,34 @@ function pickReplacement(type, excludeCodes) {
   });
   return cands[0];
 }
-function swapCard(oldCard, newProp) {
+// เลือกทรัพย์ Survey ตัวใหม่มาแทน (เก่าสุดก่อน) — สำหรับกลุ่ม Survey
+function pickSurveyReplacement(excludeCodes) {
+  const shown = {};
+  document.querySelectorAll('.card[data-survey="1"]').forEach(function(c) { shown[c.getAttribute('data-code')] = 1; });
+  (excludeCodes || []).forEach(function(c) { shown[c] = 1; });
+  const cands = (cachedSurvey || []).filter(function(p) { return !shown[p.code]; });
+  if (!cands.length) return null;
+  cands.sort(function(a, b) {
+    const da = a.lastPostedDate ? a.lastPostedDate.getTime() : 0;
+    const db = b.lastPostedDate ? b.lastPostedDate.getTime() : 0;
+    return da - db;
+  });
+  return cands[0];
+}
+// อัปเดตวันโพสในแคชทั้งกลุ่มหลักและ Survey
+function updatePostDate(code, dateS) {
+  [cachedProps, cachedSurvey].forEach(function(arr) {
+    if (arr) arr.forEach(function(p) { if (p.code === code) { p.lastPostedStr = dateS; p.lastPostedDate = parseDate(dateS); } });
+  });
+}
+function swapCard(oldCard, newProp, surveyOpt) {
   oldCard.style.transition = 'opacity 0.25s, transform 0.25s';
   oldCard.style.opacity = '0';
   oldCard.style.transform = 'scale(0.92)';
   setTimeout(function() {
     if (newProp) {
       const temp = document.createElement('div');
-      temp.innerHTML = cardHtml(newProp);
+      temp.innerHTML = cardHtml(newProp, surveyOpt ? { survey: true } : {});
       const nc = temp.firstElementChild;
       nc.style.opacity = '0';
       oldCard.parentNode.replaceChild(nc, oldCard);
@@ -621,10 +683,11 @@ async function markPosted(code, btn) {
     if (json && json.posted === true) {
       setStaffToken(token);
       const card = findCard(code);
+      const isSurvey = !!(card && card.getAttribute('data-survey') === '1');
       const type = card ? card.getAttribute('data-type') : '';
-      // อัปเดตวันโพสใน state → ตัวนี้กลายเป็นใหม่สุด ไม่ถูกสุ่มซ้ำจนกว่าตัวอื่นจะเก่ากว่า
-      if (cachedProps) cachedProps.forEach(function(p) { if (p.code === code) { p.lastPostedStr = json.dateS; p.lastPostedDate = parseDate(json.dateS); } });
-      if (card) swapCard(card, pickReplacement(type, [code])); else refreshSummary();
+      updatePostDate(code, json.dateS);   // ตัวนี้กลายเป็นใหม่สุด ไม่ถูกสุ่มซ้ำจนกว่าตัวอื่นจะเก่ากว่า
+      const rep = isSurvey ? pickSurveyReplacement([code]) : pickReplacement(type, [code]);
+      if (card) swapCard(card, rep, isSurvey); else refreshSummary();
       showToast('✅ บันทึกวันโพส ' + code + ' (' + json.dateS + ') — สุ่มใหม่มาแทน');
     } else if (json && json.msg === 'unauthorized') {
       setStaffToken(''); updateAuthUI(); showToast('🔒 เซสชันหมดอายุ — ล็อกอินใหม่'); openLogin();
