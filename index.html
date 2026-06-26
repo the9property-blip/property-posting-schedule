@@ -131,6 +131,10 @@ body.locked .btn-posted, body.locked .btn-delete { opacity: 0.5; }
 .login-ok:hover { filter: brightness(1.1); }
 .login-cancel { background: #edf2f7; color: #4a5568; }
 .login-cancel:hover { background: #e2e8f0; }
+.nav-link-btn { background: rgba(255,255,255,0.15); color: white; border: 1.5px solid rgba(255,255,255,0.3); border-radius: 50px; padding: 4px 11px; font-size: 0.73rem; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; font-weight: 600; }
+.nav-link-btn:hover { filter: brightness(1.18); }
+.nav-link-btn.cust { display: none; }
+.nav-link-btn.cust.visible { display: inline-flex; }
 </style>
 </head>
 <body>
@@ -141,6 +145,9 @@ body.locked .btn-posted, body.locked .btn-delete { opacity: 0.5; }
   <button class="btn" onclick="loadData()">🔄 โหลดข้อมูล</button>
   <button class="btn btn-reshuffle" onclick="reshuffle()">🎲 สุ่มใหม่</button>
   <button class="btn btn-auth" id="authBtn" onclick="authBtnClick()">🔒 ล็อกอินทีมงาน</button>
+  <a class="nav-link-btn" href="https://the9property-blip.github.io/rental-house/" target="_blank" rel="noopener" title="ไปยังเว็บทรัพย์เช่า">🏠 ทรัพย์เช่า</a>
+  <a class="nav-link-btn" href="https://the9property-blip.github.io/SaelProperty/" target="_blank" rel="noopener" title="ไปยังเว็บทรัพย์ขาย">🏷️ ทรัพย์ขาย</a>
+  <a class="nav-link-btn cust" id="customerBtn" href="https://the9property-blip.github.io/costumer-rent/" target="_blank" rel="noopener" title="ไปยังหน้าฐานข้อมูลลูกค้า">👥 ลูกค้าหาเช่า</a>
 </div>
 
 <div class="rule-box">
@@ -174,7 +181,7 @@ const GOOGLE_APPS_SCRIPT_BASE = 'https://script.google.com/macros/s/AKfycbxu4qqx
 const CSV_URL     = GOOGLE_APPS_SCRIPT_BASE + '?format=csv';     // ดึงตารางทรัพย์ (ทุกคอลัมน์)
 const FOLDERS_URL = GOOGLE_APPS_SCRIPT_BASE + '?format=folders'; // ดึง { code: {url, thumb} }
 const MAX_PER_TYPE = 3;
-const STAFF_TOKEN_KEY = 'sched_staff_token';
+const STAFF_TOKEN_KEY = 'staff_token';
 
 let cachedProps = null;    // กลุ่มหลัก (ไม่ใช่ Co/Survey + มี "สวย")
 let cachedSurvey = null;   // กลุ่ม Survey (col A = "Survey")
@@ -523,6 +530,8 @@ function updateAuthUI() {
   if (btn) btn.textContent = inn ? '⭐ ทีมงาน (ออก)' : '🔒 ล็อกอินทีมงาน';
   const banner = document.getElementById('lockBanner');
   if (banner) banner.style.display = inn ? 'none' : '';
+  const cust = document.getElementById('customerBtn');
+  if (cust) cust.classList.toggle('visible', inn);
 }
 function requireLogin() {
   if (isLoggedIn()) return true;
